@@ -1,85 +1,158 @@
-# Build-a-Mini-RAG
- # Construction Marketplace RAG Assistant
+# Construction Marketplace RAG Assistant
 
-This project implements a Retrieval-Augmented Generation (RAG) system for a
+This project implements a **Retrieval-Augmented Generation (RAG)** system for a
 construction marketplace AI assistant. The assistant answers user questions
-strictly using internal documents such as policies, FAQs, and specifications.
+**strictly using internal documents** such as policies, FAQs, and specifications,
+ensuring transparency and avoiding hallucinations or unsupported claims.
+
+The project demonstrates document chunking, semantic retrieval, and grounded
+answer generation with clear explainability.
+
+---
+
+## Project Architecture
+
+The system follows a standard RAG pipeline:
+
+Documents → Chunking → Embeddings → FAISS Vector Index → Top-K Retrieval → Grounded Answer
+
+For every user query:
+1. Relevant document chunks are retrieved using semantic similarity.
+2. The answer is generated **only from the retrieved chunks**.
+3. The retrieved context and the final answer are clearly displayed.
 
 ---
 
 ## Embedding Model
 
-- Model: sentence-transformers (all-MiniLM-L6-v2)
-- Reason: Lightweight, open-source, fast, and effective for semantic search.
+- **Model Used:** `sentence-transformers/all-MiniLM-L6-v2`
+- **Reason for Selection:**
+  - Lightweight and fast
+  - Open-source and widely adopted
+  - Produces high-quality embeddings for semantic search
+  - Works efficiently with FAISS
+
+Each document chunk is converted into a dense vector embedding using this model.
 
 ---
 
-## Document Chunking
+## Language Model (LLM)
 
-Documents are split into meaningful sections and paragraphs.
-Each chunk retains:
-- Document name
-- Section name
+- **Approach Used:** Grounded / deterministic answer generation
+- **Reason:**
+  - The execution environment (Kaggle) restricts downloading large Hugging Face models.
+  - To ensure reproducibility and correctness, answers are generated strictly from
+    retrieved document content.
 
-This improves retrieval accuracy and transparency.
+The RAG pipeline is **model-agnostic** and can be extended to use:
+- Local open-source LLMs (TinyLlama, Phi-2 via Hugging Face or Ollama)
+- API-based LLMs (OpenRouter)
 
 ---
 
-## Vector Search
+## Document Processing (Chunking)
 
-- FAISS is used as a local vector database.
-- Each document chunk is embedded and indexed.
-- For every user query, the top-K most relevant chunks are retrieved using
-  semantic similarity.
+Internal documents are stored in `data/documents.json`.
+
+### Chunking Strategy
+- Documents are split into **logical sections** (policies, FAQs, specifications).
+- Sections are further divided into **meaningful paragraph-level chunks**.
+- Each chunk retains metadata:
+  - Document title
+  - Section name
+
+This improves retrieval relevance and answer traceability.
+
+---
+
+## Vector Indexing and Retrieval
+
+- **Vector Store:** FAISS (CPU-based)
+- **Similarity Metric:** Cosine similarity
+- **Retrieval Strategy:** Top-K semantic retrieval (K = 3)
+
+### Retrieval Process
+1. User query is embedded using the same embedding model.
+2. FAISS retrieves the top-K most relevant document chunks.
+3. Retrieved chunks are passed to the answer generator as context.
 
 ---
 
 ## Grounded Answer Generation
 
-The system generates answers strictly from retrieved document chunks.
-If the documents do not contain enough information, the system responds with:
+The system enforces **strict grounding rules**:
 
-"I don't have enough information from the provided documents."
+- Answers are generated **only from retrieved document chunks**.
+- No external knowledge is used.
+- If the retrieved documents do not explicitly contain the answer, the system responds with:
 
-This behavior prevents hallucinations and unsupported claims.
 
----
 
-## Transparency
-
-Each response clearly displays:
-1. Retrieved document chunks (context)
-2. Final generated answer
+This behavior is intentional and prevents hallucinations.
 
 ---
 
-## Limitations
+## Transparency and Explainability
 
-Due to network restrictions in the execution environment, downloading and running
-a local Hugging Face LLM was not possible. Therefore, a deterministic grounded
-answer generator was used. The RAG pipeline itself remains unchanged and
-model-agnostic.
+For every query, the system clearly displays:
+
+1. **Retrieved Context**
+   - Top-K document chunks
+   - Source document and section
+   - Similarity scores
+
+2. **Final Answer**
+   - Fully grounded in retrieved content
+   - Or a safe refusal when information is missing
 
 ---
 
-## How to Run
+## Evaluation and Quality Analysis
 
-Install dependencies:
+The system was tested using multiple questions derived from the internal documents.
 
+### Evaluation Focus
+- Relevance of retrieved document chunks
+- Correct refusal behavior when information is absent
+- Absence of hallucinations
+- Clarity and completeness of generated answers
+
+### Observations
+- Retrieval consistently returned policy-relevant chunks.
+- The system correctly refused to answer when documents lacked explicit information.
+- No unsupported or hallucinated claims were observed.
+
+---
+
+## Optional Enhancements (Bonus)
+
+### Local Open-Source LLM Usage
+
+An attempt was made to run a local open-source LLM (TinyLlama via Hugging Face Transformers).
+However, due to network restrictions in the Kaggle environment, downloading the model
+was not possible.
+
+The RAG pipeline remains unchanged and can be easily extended to use:
+- Local LLMs via Hugging Face or Ollama
+- OpenRouter-based LLMs
+
+---
+
+### Conceptual Comparison: Local LLM vs OpenRouter
+
+| Aspect        | Local Open-Source LLM | OpenRouter LLM |
+|--------------|----------------------|----------------|
+| Latency      | Low (local inference) | Medium (API-based) |
+| Cost         | Free after setup      | Pay-per-use |
+| Privacy      | Fully local           | External service |
+| Groundedness | High (prompt-controlled) | High (prompt-controlled) |
+
+---
+
+## Running the Project Locally
+
+### Requirements
+Install dependencies using:
+
+```bash
 pip install -r requirements.txt
-
-Run the notebook or script to see retrieved context and final answers.
-## Running the Project (Kaggle)
-
-This project was developed and tested in Kaggle notebooks.
-Due to restricted internet access in Kaggle, downloading large
-Hugging Face models is not always possible.
-
-The system therefore demonstrates:
-- Document chunking
-- Embedding generation
-- FAISS-based retrieval
-- Strict grounding and refusal behavior
-
-All outputs shown in the notebook are reproducible in Kaggle.
-
